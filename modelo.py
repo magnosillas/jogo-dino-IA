@@ -1,9 +1,9 @@
 import pygame
 import os
 import random
-pygame.init()  # Inicializa todos os módulos do Pygame
+pygame.init()
 
-# Constantes globais
+# Constantes Globais
 SCREEN_HEIGHT = 600  # Altura da tela
 SCREEN_WIDTH = 1100  # Largura da tela
 SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))  # Configura a tela do jogo
@@ -35,7 +35,7 @@ CLOUD = pygame.image.load(os.path.join("Assets/Other", "Cloud.png"))
 # Carrega a imagem do fundo do jogo
 BG = pygame.image.load(os.path.join("Assets/Other", "Track.png"))
 
-# Classe do dinossauro
+
 class Dinosaur:
     X_POS = 80  # Posição X inicial do dinossauro
     Y_POS = 310  # Posição Y inicial do dinossauro
@@ -60,8 +60,18 @@ class Dinosaur:
 
     # Atualiza o estado do dinossauro
     def update(self, userInput):
-        # Adiciona a lógica do agente
-        self.avoid_obstacles()
+        # Decide a ação do dinossauro com base nos obstáculos e pontuação
+        action = self.decide_action(self.dino_rect, obstacles, points)
+        
+        # Atualiza os estados do dinossauro com base na ação decidida
+        if action == "duck":
+            self.dino_duck = True
+            self.dino_run = False
+            self.dino_jump = False
+        elif action == "jump" and not self.dino_jump:
+            self.dino_duck = False
+            self.dino_run = False
+            self.dino_jump = True
 
         # Executa a ação correspondente
         if self.dino_duck:
@@ -89,33 +99,37 @@ class Dinosaur:
             self.dino_run = True
             self.dino_jump = False
 
-    # Regras avançadas para desviar dos obstáculos
-    def avoid_obstacles(self):
-        if obstacles:
-            obstacle = obstacles[0]
-            # Verifica se o obstáculo está suficientemente perto
-            distance = obstacle.rect.x - self.dino_rect.x
-            
-            if distance < 200:
-                if isinstance(obstacle, Bird):
-                    # Verifica a altura do pássaro e se ele está mais alto que o dinossauro
-                    if obstacle.rect.y < 300:
-                        if not self.dino_jump:
-                            self.dino_duck = True
-                            self.dino_run = False
-                            self.dino_jump = False
-                    else:
-                        if not self.dino_jump:
-                            self.dino_duck = False
-                            self.dino_run = False
-                            self.dino_jump = True
-                else:
-                    # Pula para cactos
-                    if not self.dino_jump:
-                        self.dino_duck = False
-                        self.dino_run = False
-                        self.dino_jump = True
+    # Decide a ação do dinossauro com base na posição dos obstáculos e na pontuação
+    def decide_action(self, dino_rect, obstacles, points):
+        # Se não houver obstáculos, retorna uma string vazia (nenhuma ação específica)
+        if not obstacles:
+            return ""
 
+        # Define a distância base para pular
+        base_jump_distance = 200
+        # Pega o primeiro obstáculo da lista (o mais próximo)
+        obstacle = obstacles[0]
+        # Calcula a distância entre o dinossauro e o obstáculo
+        distance = obstacle.rect.x - dino_rect.x
+        # Ajusta a distância de pulo com base na pontuação (quanto maior a pontuação, maior a distância de pulo)
+        distanceJump = base_jump_distance + (points // 60) * 2
+
+        # Se a distância até o obstáculo for menor que a distância ajustada
+        if distance < distanceJump:
+            # Se o obstáculo for um pássaro
+            if isinstance(obstacle, Bird):
+                # Se o pássaro estiver abaixo de 300 na coordenada Y, retorna "duck" para abaixar
+                if obstacle.rect.y < 300:
+                    return "duck"
+                else:
+                    # Caso contrário, retorna "jump" para pular
+                    return "jump"
+            else:
+                # Se o obstáculo não for um pássaro (é um cacto), retorna "jump" para pular
+                return "jump"
+        # Se a distância até o obstáculo não for menor que a distância ajustada, retorna uma string vazia (nenhuma ação específica)
+        return ""
+    
     # Muda o estado do dinossauro para abaixado
     def duck(self):
         self.image = self.duck_img[self.step_index // 5]
@@ -145,76 +159,74 @@ class Dinosaur:
     # Desenha o dinossauro na tela
     def draw(self, SCREEN):
         SCREEN.blit(self.image, (self.dino_rect.x, self.dino_rect.y))
-
-# Classe das nuvens
 class Cloud:
     def __init__(self):
-        self.x = SCREEN_WIDTH + random.randint(800, 1000)
-        self.y = random.randint(50, 100)
-        self.image = CLOUD
-        self.width = self.image.get_width()
+        self.x = SCREEN_WIDTH + random.randint(800, 1000)  # Posição X inicial da nuvem
+        self.y = random.randint(50, 100)  # Posição Y inicial da nuvem
+        self.image = CLOUD  # Imagem da nuvem
+        self.width = self.image.get_width()  # Largura da imagem da nuvem
 
     # Atualiza a posição da nuvem
     def update(self):
-        self.x -= game_speed
-        if self.x < -self.width:
-            self.x = SCREEN_WIDTH + random.randint(2500, 3000)
-            self.y = random.randint(50, 100)
+        self.x -= game_speed  # Move a nuvem para a esquerda com a velocidade do jogo
+        if self.x < -self.width:  # Se a nuvem sair da tela
+            self.x = SCREEN_WIDTH + random.randint(2500, 3000)  # Redefine a posição X da nuvem
+            self.y = random.randint(50, 100)  # Redefine a posição Y da nuvem
 
     # Desenha a nuvem na tela
     def draw(self, SCREEN):
-        SCREEN.blit(self.image, (self.x, self.y))
+        SCREEN.blit(self.image, (self.x, self.y))  # Desenha a nuvem na posição atual
 
-# Classe base para os obstáculos
+
 class Obstacle:
     def __init__(self, image, type):
-        self.image = image
-        self.type = type
-        self.rect = self.image[self.type].get_rect()
-        self.rect.x = SCREEN_WIDTH
+        self.image = image  # Imagem do obstáculo
+        self.type = type  # Tipo de obstáculo (índice da imagem)
+        self.rect = self.image[self.type].get_rect()  # Retângulo do obstáculo
+        self.rect.x = SCREEN_WIDTH  # Posição X inicial do obstáculo
 
     # Atualiza a posição do obstáculo
     def update(self):
-        self.rect.x -= game_speed
-        if self.rect.x < -self.rect.width:
-            obstacles.pop()
+        self.rect.x -= game_speed  # Move o obstáculo para a esquerda com a velocidade do jogo
+        if self.rect.x < -self.rect.width:  # Se o obstáculo sair da tela
+            obstacles.pop()  # Remove o obstáculo da lista
 
     # Desenha o obstáculo na tela
     def draw(self, SCREEN):
-        SCREEN.blit(self.image[self.type], self.rect)
+        SCREEN.blit(self.image[self.type], self.rect)  # Desenha o obstáculo na posição atual
 
-# Classe dos cactos pequenos
+
 class SmallCactus(Obstacle):
     def __init__(self, image):
-        self.type = random.randint(0, 2)
-        super().__init__(image, self.type)
-        self.rect.y = 325
+        self.type = random.randint(0, 2)  # Define um tipo aleatório de cacto pequeno
+        super().__init__(image, self.type)  # Chama o construtor da classe pai (Obstacle)
+        self.rect.y = 325  # Define a posição Y do cacto pequeno
 
-# Classe dos cactos grandes
+
 class LargeCactus(Obstacle):
     def __init__(self, image):
-        self.type = random.randint(0, 2)
-        super().__init__(image, self.type)
-        self.rect.y = 300
+        self.type = random.randint(0, 2)  # Define um tipo aleatório de cacto grande
+        super().__init__(image, self.type)  # Chama o construtor da classe pai (Obstacle)
+        self.rect.y = 300  # Define a posição Y do cacto grande
 
-# Classe dos pássaros
+
 class Bird(Obstacle):
     def __init__(self, image):
-        self.type = 0
-        super().__init__(image, self.type)
-        self.rect.y = random.choice([250, 300])
-        self.index = 0
+        self.type = 0  # Define o tipo do pássaro
+        super().__init__(image, self.type)  # Chama o construtor da classe pai (Obstacle)
+        self.rect.y = random.choice([250, 300])  # Define uma posição Y aleatória para o pássaro
+        self.index = 0  # Índice para animação do pássaro
 
     # Desenha o pássaro na tela
     def draw(self, SCREEN):
         if self.index >= 9:
             self.index = 0
-        SCREEN.blit(self.image[self.index // 5], self.rect)
-        self.index += 1
+        SCREEN.blit(self.image[self.index // 5], self.rect)  # Desenha a imagem correspondente à animação
+        self.index += 1  # Incrementa o índice para a próxima imagem
 
-# Função principal do jogo
+
 def main():
-    global game_speed, x_pos_bg, y_pos_bg, points, obstacles, loss_message, loss_message_timer
+    global game_speed, x_pos_bg, y_pos_bg, points, obstacles
     run = True
     clock = pygame.time.Clock()  # Relógio para controlar o tempo do jogo
     player = Dinosaur()  # Cria um dinossauro
@@ -222,16 +234,14 @@ def main():
     game_speed = 20  # Velocidade inicial do jogo
     x_pos_bg = 0  # Posição X inicial do fundo
     y_pos_bg = 380  # Posição Y inicial do fundo
-    points = 1000  # Pontuação inicial
+    points = 0  # Pontuação inicial
     font = pygame.font.Font('freesansbold.ttf', 20)  # Fonte para desenhar a pontuação
     obstacles = []  # Lista de obstáculos
     death_count = 0  # Contador de mortes
-    loss_message = ""  # Mensagem de perda de pontos
-    loss_message_timer = 0  # Temporizador para exibir a mensagem de perda de pontos
 
     # Função para atualizar a pontuação
     def score():
-        global points, game_speed, loss_message, loss_message_timer
+        global points, game_speed
         points += 1  # Incrementa a pontuação
         if points % 100 == 0:  # A cada 100 pontos
             game_speed += 1  # Aumenta a velocidade do jogo
@@ -240,13 +250,6 @@ def main():
         textRect = text.get_rect()
         textRect.center = (1000, 40)  # Define a posição do texto da pontuação
         SCREEN.blit(text, textRect)  # Desenha a pontuação na tela
-
-        if loss_message and loss_message_timer > 0:
-            loss_text = font.render(loss_message, True, (255, 0, 0))
-            loss_textRect = loss_text.get_rect()
-            loss_textRect.center = (950, 70)
-            SCREEN.blit(loss_text, loss_textRect)
-            loss_message_timer -= 1
 
     # Função para atualizar o fundo
     def background():
@@ -283,15 +286,9 @@ def main():
             obstacle.draw(SCREEN)  # Desenha o obstáculo na tela
             obstacle.update()  # Atualiza a posição do obstáculo
             if player.dino_rect.colliderect(obstacle.rect):  # Verifica colisão entre dinossauro e obstáculo
-                points -= 100  # Subtrai 100 pontos
-                if points <= 0:  # Se a pontuação for menor ou igual a zero
-                    pygame.time.delay(100)  # Pausa por 100 milissegundos
-                    death_count += 1  # Incrementa o contador de mortes
-                    menu(death_count)  # Chama o menu
-                else:
-                    loss_message = "Você perdeu 100 pontos!"  # Define a mensagem de perda de pontos
-                    loss_message_timer = 30  # Temporizador para exibir a mensagem de perda de pontos
-                    obstacles.pop()  # Remove o obstáculo da lista
+                pygame.time.delay(100)  # Pausa por 100 milissegundos
+                death_count += 1  # Incrementa o contador de mortes
+                menu(death_count)  # Chama o menu
 
         background()  # Atualiza o fundo
 
@@ -303,7 +300,7 @@ def main():
         clock.tick(30)  # Controla a taxa de quadros por segundo
         pygame.display.update()  # Atualiza a tela
 
-# Função para exibir o menu
+
 def menu(death_count):
     global points
     run = True
@@ -329,8 +326,7 @@ def menu(death_count):
                 pygame.quit()
                 run = False
             if event.type == pygame.KEYDOWN:
-                points = 1000  # Reseta a pontuação
                 main()  # Inicia o jogo
 
-# Inicia o jogo
-menu(death_count=0)
+
+menu(death_count=0)  # Chama o menu para iniciar o jogo
